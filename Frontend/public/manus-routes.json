@@ -1,0 +1,12 @@
+{
+  "routes": [
+    { "path": "/", "title": "Excel Assessment Hub" },
+    { "path": "/assessments", "title": "Assessments" },
+    { "path": "/assessments/new", "title": "Assessment Studio" },
+    { "path": "/question-bank", "title": "Question Bank" },
+    { "path": "/assignments", "title": "Assignments" },
+    { "path": "/analytics", "title": "Analytics" },
+    { "path": "/settings", "title": "Settings" },
+    { "path": "/404", "title": "Not Found" }
+  ]
+}

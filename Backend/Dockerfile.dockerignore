@@ -1,0 +1,8 @@
+/node_modules
+/Backend/node_modules
+/Backend/dist
+/.git
+/Backend/.env
+/Backend/.env.*
+/Backend/.manus-logs
+*.manus-starter-*

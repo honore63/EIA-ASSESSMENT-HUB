@@ -1,0 +1,451 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model drizzle_migrations {
+  id         BigInt  @id @default(autoincrement()) @db.UnsignedBigInt
+  hash       String  @db.Text
+  created_at BigInt?
+
+  @@map("__drizzle_migrations")
+}
+
+model academic_years {
+  id        Int                   @id @default(autoincrement())
+  schoolId  Int
+  label     String                @db.VarChar(40)
+  status    academic_years_status @default(current)
+  createdAt DateTime              @default(now()) @db.Timestamp(0)
+  schools   schools               @relation(fields: [schoolId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "academic_years_schoolId_schools_id_fk")
+  terms     terms[]
+
+  @@unique([schoolId, label], map: "academic_year_school_label_unique")
+}
+
+model assessment_attempts {
+  id                   Int                        @id @default(autoincrement())
+  schoolId             Int
+  assessmentId         Int
+  studentUserId        Int?
+  participantName      String?                    @db.VarChar(160)
+  status               assessment_attempts_status @default(in_progress)
+  score                Int?
+  totalMarks           Int
+  percentage           Int?
+  timeTakenSeconds     Int?
+  teacherFeedback      String?                    @db.Text
+  startedAt            DateTime                   @default(now()) @db.Timestamp(0)
+  submittedAt          DateTime?                  @db.Timestamp(0)
+  createdAt            DateTime                   @default(now()) @db.Timestamp(0)
+  updatedAt            DateTime                   @default(now()) @db.Timestamp(0)
+  assessments          assessments                @relation(fields: [assessmentId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "assessment_attempts_assessmentId_assessments_id_fk")
+  schools              schools                    @relation(fields: [schoolId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "assessment_attempts_schoolId_schools_id_fk")
+  users                users?                     @relation(fields: [studentUserId], references: [id], onUpdate: NoAction, map: "assessment_attempts_studentUserId_users_id_fk")
+  assessment_responses assessment_responses[]
+
+  @@index([schoolId], map: "assessment_attempts_schoolId_schools_id_fk")
+  @@index([assessmentId, status], map: "attempt_assessment_status_idx")
+  @@index([studentUserId, submittedAt], map: "attempt_student_history_idx")
+}
+
+model assessment_questions {
+  id           Int         @id @default(autoincrement())
+  assessmentId Int
+  questionId   Int
+  orderIndex   Int         @default(0)
+  assessments  assessments @relation(fields: [assessmentId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "assessment_questions_assessmentId_assessments_id_fk")
+  questions    questions   @relation(fields: [questionId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "assessment_questions_questionId_questions_id_fk")
+
+  @@unique([assessmentId, questionId], map: "assessment_question_unique")
+  @@index([assessmentId, orderIndex], map: "assessment_question_order_idx")
+  @@index([questionId], map: "assessment_questions_questionId_questions_id_fk")
+}
+
+model assessment_responses {
+  id                  Int                 @id @default(autoincrement())
+  attemptId           Int
+  questionId          Int
+  answer              String?             @db.LongText
+  isCorrect           Boolean?
+  earnedMarks         Int                 @default(0)
+  createdAt           DateTime            @default(now()) @db.Timestamp(0)
+  updatedAt           DateTime            @default(now()) @db.Timestamp(0)
+  assessment_attempts assessment_attempts @relation(fields: [attemptId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "assessment_responses_attemptId_assessment_attempts_id_fk")
+  questions           questions           @relation(fields: [questionId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "assessment_responses_questionId_questions_id_fk")
+
+  @@unique([attemptId, questionId], map: "attempt_question_unique")
+  @@index([questionId], map: "assessment_responses_questionId_questions_id_fk")
+}
+
+model assessments {
+  id                   Int                    @id @default(autoincrement())
+  schoolId             Int
+  ownerId              Int
+  title                String                 @db.VarChar(200)
+  description          String?                @db.Text
+  subject              String                 @db.VarChar(100)
+  gradeLabel           String                 @db.VarChar(80)
+  topic                String?                @db.VarChar(140)
+  status               assessments_status     @default(draft)
+  questionCount        Int                    @default(0)
+  totalMarks           Int                    @default(0)
+  completionRate       Int                    @default(0)
+  averageScore         Int                    @default(0)
+  durationMinutes      Int                    @default(30)
+  settings             String?                @db.LongText
+  createdAt            DateTime               @default(now()) @db.Timestamp(0)
+  updatedAt            DateTime               @default(now()) @db.Timestamp(0)
+  assessment_attempts  assessment_attempts[]
+  assessment_questions assessment_questions[]
+  users                users                  @relation(fields: [ownerId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "assessments_ownerId_users_id_fk")
+  schools              schools                @relation(fields: [schoolId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "assessments_schoolId_schools_id_fk")
+  assignments          assignments[]
+  live_quiz_sessions   live_quiz_sessions[]
+
+  @@index([ownerId], map: "assessment_owner_idx")
+  @@index([schoolId, status], map: "assessment_school_status_idx")
+}
+
+model assignments {
+  id            Int                @id @default(autoincrement())
+  schoolId      Int
+  assessmentId  Int
+  teacherId     Int
+  title         String             @db.VarChar(200)
+  classLabel    String             @db.VarChar(120)
+  status        assignments_status @default(draft)
+  dueAt         DateTime?          @db.DateTime(0)
+  submissions   Int                @default(0)
+  totalLearners Int                @default(0)
+  createdAt     DateTime           @default(now()) @db.Timestamp(0)
+  assessments   assessments        @relation(fields: [assessmentId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "assignments_assessmentId_assessments_id_fk")
+  schools       schools            @relation(fields: [schoolId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "assignments_schoolId_schools_id_fk")
+  users         users              @relation(fields: [teacherId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "assignments_teacherId_users_id_fk")
+
+  @@index([schoolId, status], map: "assignment_school_status_idx")
+  @@index([assessmentId], map: "assignments_assessmentId_assessments_id_fk")
+  @@index([teacherId], map: "assignments_teacherId_users_id_fk")
+}
+
+model audit_logs {
+  id         Int      @id @default(autoincrement())
+  schoolId   Int?
+  actorId    Int?
+  action     String   @db.VarChar(120)
+  entityType String   @db.VarChar(80)
+  entityId   Int?
+  metadata   String?  @db.LongText
+  createdAt  DateTime @default(now()) @db.Timestamp(0)
+  users      users?   @relation(fields: [actorId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "audit_logs_actorId_users_id_fk")
+  schools    schools? @relation(fields: [schoolId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "audit_logs_schoolId_schools_id_fk")
+
+  @@index([actorId], map: "audit_logs_actorId_users_id_fk")
+  @@index([schoolId], map: "audit_logs_schoolId_schools_id_fk")
+}
+
+model classes {
+  id        Int      @id @default(autoincrement())
+  schoolId  Int
+  gradeId   Int
+  name      String   @db.VarChar(100)
+  section   String?  @db.VarChar(20)
+  createdAt DateTime @default(now()) @db.Timestamp(0)
+  grades    grades   @relation(fields: [gradeId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "classes_gradeId_grades_id_fk")
+  schools   schools  @relation(fields: [schoolId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "classes_schoolId_schools_id_fk")
+
+  @@unique([schoolId, name], map: "class_school_name_unique")
+  @@index([gradeId], map: "classes_gradeId_grades_id_fk")
+}
+
+model grades {
+  id         Int       @id @default(autoincrement())
+  schoolId   Int
+  name       String    @db.VarChar(80)
+  level      Int
+  curriculum String    @default("Cambridge") @db.VarChar(120)
+  createdAt  DateTime  @default(now()) @db.Timestamp(0)
+  classes    classes[]
+  schools    schools   @relation(fields: [schoolId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "grades_schoolId_schools_id_fk")
+
+  @@unique([schoolId, level], map: "grade_school_level_unique")
+}
+
+model question_options {
+  id         Int       @id @default(autoincrement())
+  questionId Int
+  label      String    @db.VarChar(10)
+  text       String    @db.Text
+  isCorrect  Boolean   @default(false)
+  questions  questions @relation(fields: [questionId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "question_options_questionId_questions_id_fk")
+
+  @@index([questionId], map: "question_options_questionId_questions_id_fk")
+}
+
+model questions {
+  id                   Int                    @id @default(autoincrement())
+  schoolId             Int
+  type                 questions_type
+  prompt               String                 @db.Text
+  marks                Int                    @default(1)
+  explanation          String?                @db.Text
+  answerKey            String?                @db.LongText
+  settings             String?                @db.LongText
+  createdAt            DateTime               @default(now()) @db.Timestamp(0)
+  assessment_questions assessment_questions[]
+  assessment_responses assessment_responses[]
+  live_quiz_responses  live_quiz_responses[]
+  question_options     question_options[]
+  schools              schools                @relation(fields: [schoolId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "questions_schoolId_schools_id_fk")
+
+  @@index([schoolId, type], map: "question_school_type_idx")
+}
+
+model school_memberships {
+  id        Int                       @id @default(autoincrement())
+  schoolId  Int
+  userId    Int
+  role      school_memberships_role
+  status    school_memberships_status @default(active)
+  createdAt DateTime                  @default(now()) @db.Timestamp(0)
+  schools   schools                   @relation(fields: [schoolId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "school_memberships_schoolId_schools_id_fk")
+  users     users                     @relation(fields: [userId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "school_memberships_userId_users_id_fk")
+
+  @@unique([schoolId, userId], map: "school_membership_school_user_unique")
+  @@index([userId], map: "school_membership_user_idx")
+}
+
+model schools {
+  id                  Int                   @id @default(autoincrement())
+  name                String                @db.VarChar(180)
+  slug                String                @unique(map: "schools_slug_unique") @db.VarChar(100)
+  tenantKey           String                @unique(map: "schools_tenantKey_unique") @db.VarChar(100)
+  createdAt           DateTime              @default(now()) @db.Timestamp(0)
+  updatedAt           DateTime              @default(now()) @db.Timestamp(0)
+  academic_years      academic_years[]
+  assessment_attempts assessment_attempts[]
+  assessments         assessments[]
+  assignments         assignments[]
+  audit_logs          audit_logs[]
+  classes             classes[]
+  grades              grades[]
+  live_quiz_sessions  live_quiz_sessions[]
+  questions           questions[]
+  school_memberships  school_memberships[]
+  subjects            subjects[]
+  teacher_profiles    teacher_profiles[]
+  terms               terms[]
+}
+
+model subjects {
+  id         Int      @id @default(autoincrement())
+  schoolId   Int
+  name       String   @db.VarChar(100)
+  code       String   @db.VarChar(20)
+  department String?  @db.VarChar(100)
+  createdAt  DateTime @default(now()) @db.Timestamp(0)
+  schools    schools  @relation(fields: [schoolId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "subjects_schoolId_schools_id_fk")
+
+  @@unique([schoolId, code], map: "subject_school_code_unique")
+}
+
+model teacher_profiles {
+  id              Int                     @id @default(autoincrement())
+  schoolId        Int
+  userId          Int?
+  fullName        String                  @db.VarChar(160)
+  email           String                  @db.VarChar(320)
+  subjectsSummary String?                 @db.VarChar(240)
+  gradesSummary   String?                 @db.VarChar(120)
+  status          teacher_profiles_status @default(pending_approval)
+  createdAt       DateTime                @default(now()) @db.Timestamp(0)
+  updatedAt       DateTime                @default(now()) @db.Timestamp(0)
+  schools         schools                 @relation(fields: [schoolId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "teacher_profiles_schoolId_schools_id_fk")
+  users           users?                  @relation(fields: [userId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "teacher_profiles_userId_users_id_fk")
+
+  @@index([schoolId, status], map: "teacher_profile_school_status_idx")
+  @@index([userId], map: "teacher_profiles_userId_users_id_fk")
+}
+
+model terms {
+  id             Int            @id @default(autoincrement())
+  schoolId       Int
+  academicYearId Int
+  label          String         @db.VarChar(80)
+  startsOn       String?        @db.VarChar(20)
+  endsOn         String?        @db.VarChar(20)
+  academic_years academic_years @relation(fields: [academicYearId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "terms_academicYearId_academic_years_id_fk")
+  schools        schools        @relation(fields: [schoolId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "terms_schoolId_schools_id_fk")
+
+  @@index([academicYearId], map: "terms_academicYearId_academic_years_id_fk")
+  @@index([schoolId], map: "terms_schoolId_schools_id_fk")
+}
+
+model users {
+  id                  Int                    @id @default(autoincrement())
+  openId              String                 @unique(map: "users_openId_unique") @db.VarChar(64)
+  name                String?                @db.Text
+  email               String?                @unique(map: "users_email_unique") @db.VarChar(320)
+  loginMethod         String?                @db.VarChar(64)
+  role                users_role             @default(teacher)
+  createdAt           DateTime               @default(now()) @db.Timestamp(0)
+  updatedAt           DateTime               @default(now()) @db.Timestamp(0)
+  lastSignedIn        DateTime               @default(now()) @db.Timestamp(0)
+  passwordHash        String?                @db.VarChar(255)
+  accountStatus       users_accountStatus    @default(active)
+  mustChangePassword  Boolean                @default(false)
+  assessment_attempts assessment_attempts[]
+  assessments         assessments[]
+  assignments         assignments[]
+  audit_logs          audit_logs[]
+  school_memberships  school_memberships[]
+  live_quiz_sessions  live_quiz_sessions[]
+  teacher_profiles    teacher_profiles[]
+  sessionParticipants session_participants[]
+}
+
+enum questions_type {
+  mcq
+  multi_select
+  true_false
+  short_answer
+  numeric
+  fill_blank
+}
+
+enum assignment_mode {
+  live_quiz
+  assignment
+  practice
+}
+
+enum academic_years_status {
+  current
+  upcoming
+  closed
+}
+
+enum school_memberships_role {
+  admin
+  teacher
+  student
+}
+
+enum school_memberships_status {
+  active
+  pending
+  suspended
+  deactivated
+}
+
+enum assessment_attempts_status {
+  in_progress
+  submitted
+  graded
+}
+
+enum users_role {
+  admin
+  teacher
+  student
+}
+
+enum assignments_status {
+  draft
+  scheduled
+  available
+  in_progress
+  submitted
+  completed
+  overdue
+  closed
+}
+
+enum teacher_profiles_status {
+  pending_email
+  pending_approval
+  approved
+  rejected
+  suspended
+  deactivated
+}
+
+enum assessments_status {
+  draft
+  published
+  archived
+}
+
+enum users_accountStatus {
+  active
+  pending_verification
+  inactive
+  suspended
+}
+
+// ===== LIVE QUIZ (Kahoot-style game PIN sessions) =====
+
+model live_quiz_sessions {
+  id                   Int                    @id @default(autoincrement())
+  assessmentId         Int
+  teacherId            Int
+  schoolId             Int
+  sessionCode          String                 @unique @db.VarChar(10)
+  status               assignment_mode        @default(live_quiz)
+  startedAt            DateTime?              @db.Timestamp(0)
+  endedAt              DateTime?              @db.Timestamp(0)
+  timeLimitMinutes     Int                    @default(30)
+  createdAt            DateTime               @default(now()) @db.Timestamp(0)
+  updatedAt            DateTime               @default(now()) @db.Timestamp(0)
+  assessment           assessments            @relation(fields: [assessmentId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "live_quiz_sessions_assessmentId_assessments_id_fk")
+  teacher              users                  @relation(fields: [teacherId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "live_quiz_sessions_teacherId_users_id_fk")
+  school               schools                @relation(fields: [schoolId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "live_quiz_sessions_schoolId_schools_id_fk")
+  session_participants session_participants[]
+  live_quiz_responses  live_quiz_responses[]
+
+  @@index([assessmentId], map: "live_quiz_sessions_assessmentId_idx")
+  @@index([teacherId], map: "live_quiz_sessions_teacherId_idx")
+  @@index([schoolId], map: "live_quiz_sessions_schoolId_idx")
+}
+
+model session_participants {
+  id                  Int                   @id @default(autoincrement())
+  sessionId           Int
+  userId              Int
+  studentUserId       Int?
+  joinedAt            DateTime              @default(now()) @db.Timestamp(0)
+  leftAt              DateTime?
+  score               Int?
+  correctAnswers      Int?
+  completedAt         DateTime?
+  live_quiz_sessions  live_quiz_sessions    @relation(fields: [sessionId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "session_participants_sessionId_live_quiz_sessions_id_fk")
+  users               users?                @relation(fields: [studentUserId], references: [id], onDelete: SetNull, onUpdate: NoAction, map: "session_participants_studentUserId_users_id_fk")
+  live_quiz_responses live_quiz_responses[]
+
+  @@index([sessionId], map: "session_participants_sessionId_idx")
+  @@index([userId], map: "session_participants_userId_idx")
+  @@index([studentUserId], map: "session_participants_studentUserId_users_id_fk")
+}
+
+model live_quiz_responses {
+  id                   Int                  @id @default(autoincrement())
+  sessionId            Int
+  participantId        Int
+  questionId           Int
+  selectedOption       Int?
+  answerText           String?
+  isCorrect            Boolean              @default(false)
+  earnedMarks          Int                  @default(0)
+  respondedAt          DateTime             @default(now()) @db.Timestamp(0)
+  live_quiz_sessions   live_quiz_sessions   @relation(fields: [sessionId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "live_quiz_responses_sessionId_live_quiz_sessions_id_fk")
+  session_participants session_participants @relation(fields: [participantId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "live_quiz_responses_participantId_session_participants_id_fk")
+  questions            questions            @relation(fields: [questionId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "live_quiz_responses_questionId_questions_id_fk")
+
+  @@index([sessionId], map: "live_quiz_responses_sessionId_idx")
+  @@index([participantId], map: "live_quiz_responses_participantId_idx")
+  @@index([questionId], map: "live_quiz_responses_questionId_idx")
+}

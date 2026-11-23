@@ -1,0 +1,26 @@
+{
+  "id": "web-db-user",
+  "name": "Web App (db,user)",
+  "description": "Full-stack web template with database + user flows",
+  "capabilities": [
+    "server",
+    "db",
+    "user"
+  ],
+  "files": [
+    "Backend/package.json",
+    "Database/prisma/schema.prisma",
+    "Backend/server/db.ts",
+    "Backend/server/routers.ts",
+    "Frontend/index.html",
+    "Frontend/src/App.tsx",
+    "Frontend/src/lib/trpc.ts",
+    "Frontend/src/pages/Home.tsx",
+    "Backend/server/auth.logout.test.ts"
+  ],
+  "source": {
+    "repository": "manus-ai/manus-sandbox",
+    "commit": "96caae59caace79529e4b3c3a32234cddd3e8411",
+    "path": "sandbox/templates/web-dev-templates/templates/web-db-user"
+  }
+}
